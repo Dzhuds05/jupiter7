@@ -606,6 +606,7 @@
         // The structure is fixed now, but you MUST still deploy the Apps Script and replace this string!
         // The full URL will look something like: https://script.google.com/macros/s/AKfyc.../exec
         const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxyPdHMQmTIG8E9XONO7w53cLF1vy6Pc9QlERV-8VfVxJL2fDCC0fmgaEZ2NkeV2gSl/exec'; 
+        
         // Submit using hidden iframe (bypasses CORS issues)
 function submitToGoogleScript(url, data) {
     return new Promise((resolve) => {
@@ -879,6 +880,7 @@ function submitToGoogleScript(url, data) {
 </body>
 
 </html>
+
 
 
 
