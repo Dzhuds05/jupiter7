@@ -605,7 +605,42 @@
         // CRITICAL UPDATE: The SCRIPT_URL must be the full Web App URL you get after deployment.
         // The structure is fixed now, but you MUST still deploy the Apps Script and replace this string!
         // The full URL will look something like: https://script.google.com/macros/s/AKfyc.../exec
-        const SCRIPT_URL = 'https://script.google.com/a/macros/donga.ac.kr/s/AKfycbxyPdHMQmTIG8E9XONO7w53cLF1vy6Pc9QlERV-8VfVxJL2fDCC0fmgaEZ2NkeV2gSl/exec'; 
+        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxyPdHMQmTIG8E9XONO7w53cLF1vy6Pc9QlERV-8VfVxJL2fDCC0fmgaEZ2NkeV2gSl/exec'; 
+        // Submit using hidden iframe (bypasses CORS issues)
+function submitToGoogleScript(url, data) {
+    return new Promise((resolve) => {
+        // Create hidden iframe
+        const iframe = document.createElement('iframe');
+        iframe.style.display = 'none';
+        iframe.name = 'hidden_iframe';
+        document.body.appendChild(iframe);
+
+        // Create form
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = url;
+        form.target = 'hidden_iframe';
+
+        // Add data as form fields
+        for (const key in data) {
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = key;
+            input.value = data[key];
+            form.appendChild(input);
+        }
+
+        document.body.appendChild(form);
+        form.submit();
+
+        // Clean up and resolve after submission
+        setTimeout(() => {
+            document.body.removeChild(form);
+            document.body.removeChild(iframe);
+            resolve();
+        }, 2000);
+    });
+}
         
         // Team member data - UPDATED with Full Names
         const teamData = {
@@ -782,11 +817,8 @@
         document.getElementById('trackerForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             
-            const form = e.target;
             const submitBtn = document.getElementById('submitBtn');
-            const messageDiv = document.getElementById('message');
             
-            // --- Validation ---
             const team = document.getElementById('teamName').value;
             const member = document.getElementById('memberName').value;
             const role = document.getElementById('roleSelect').value;
@@ -798,14 +830,11 @@
             const understanding = document.getElementById('understandingRating').value;
             const collaboration = document.getElementById('collaborationRating').value;
             
-            // Simple validation for required fields
             if (!team || !member || !role || !quarter || !session || !week || !attendance || !completion || !understanding || !collaboration) {
                 showMessage('Please fill out all required fields (*).', 'error');
                 return;
             }
 
-
-            // Gather all data
             const formData = {
                 timestamp: new Date().toLocaleString(),
                 team: team,
@@ -823,51 +852,25 @@
                 goals: document.getElementById('goals').value,
                 helpNeeded: document.getElementById('helpNeeded').checked ? 'Yes' : 'No'
             };
-
-
-            // Disable button and show loading state
+            
             submitBtn.disabled = true;
             submitBtn.textContent = 'Submitting...';
-            
+
             try {
-                // Apps Script requires the request body to be a string
-                const response = await fetch(SCRIPT_URL, {
-                    method: 'POST',
-                    mode: 'cors', // Essential for cross-origin requests
-                    cache: 'no-cache',
-                    headers: {
-                        'Content-Type': 'application/json' // Tell the Apps Script it's JSON
-                    },
-                    body: JSON.stringify(formData)
-                });
+                await submitToGoogleScript(SCRIPT_URL, formData);
                 
-                if (response.ok || response.status === 200) {
-                    const result = await response.json().catch(() => ({ status: 'error', error: 'Invalid JSON response from server.' }));
-
-
-                    if (result.status === 'success') {
-                        showMessage('✅ Success! Your progress has been recorded.', 'success');
-                        form.reset(); // Clear the form
-                        // Reset custom controls
-                        document.querySelectorAll('.rating-btn').forEach(b => b.classList.remove('selected'));
-                        document.getElementById('memberName').innerHTML = '<option value="">First select your team...</option>';
-                        document.getElementById('roleSelect').innerHTML = '<option value="">Select your name first...</option>';
-                        document.getElementById('roleSelect').disabled = true;
-                        document.getElementById('cgLink').classList.remove('show');
-                    } else {
-                        // Handle server-side error or bad response (e.g., status 400, 500)
-                        showMessage(`❌ Submission Failed: ${result.error || 'Server returned an error status.'}`, 'error');
-                    }
-                } else {
-                    // Handle non-200 HTTP status codes
-                    showMessage(`❌ Submission Failed: Server Error (${response.status}). Check the Apps Script logs.`, 'error');
-                }
+                showMessage('✅ Success! Your check-in has been submitted. Check your spreadsheet to confirm.', 'success');
+                document.getElementById('trackerForm').reset();
+                document.querySelectorAll('.rating-btn').forEach(btn => btn.classList.remove('selected'));
+                document.getElementById('memberName').innerHTML = '<option value="">First select your team...</option>';
+                document.getElementById('roleSelect').innerHTML = '<option value="">Select your name first...</option>';
+                document.getElementById('roleSelect').disabled = true;
+                document.getElementById('cgLink').classList.remove('show');
+                
             } catch (error) {
-                // Handle network errors or issues with the fetch request
                 console.error('Submission Error:', error);
-                showMessage('❌ Network Error: Could not connect to the server. Check your internet connection or the SCRIPT_URL.', 'error');
+                showMessage('❌ Submission failed. Please try again.', 'error');
             } finally {
-                // Re-enable button
                 submitBtn.disabled = false;
                 submitBtn.textContent = '🚀 Submit Weekly Check-In';
             }
@@ -876,6 +879,7 @@
 </body>
 
 </html>
+
 
 
 
